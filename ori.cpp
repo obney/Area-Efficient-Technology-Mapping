@@ -3,106 +3,99 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <algorithm>
 #include <queue>
-#include <unordered_map>
 #include <set>
 
 using namespace std;
 
+// Struct to hold all input-related graph
+struct InputData {
+    int N;                       // Number of nodes
+    int number_of_pi;            // Number of primary inputs
+    int number_of_po;            // Number of primary outputs
+    vector<vector<int>> E;       // Adjacency list for graph representation
+    vector<int> PI;              // Primary inputs
+    vector<int> PO;              // Primary outputs
+};
 
-int main(int argc, char* argv[]) {
-    // Check if arguments are correctly provided
-    if (argc != 4) {
-        cerr << "Usage: ./mapper <input file path> <output file path> <K>" << endl;
-        return 1;
-    }
-
-    // Parse command line arguments
-    string inputFilePath = argv[1];
-    string outputFilePath = argv[2];
-    int K = stoi(argv[3]);
-
-    // Open input file
+// Function to read input from file into InputData struct
+bool read_input(const string& inputFilePath, InputData& graph) {
     ifstream inFile(inputFilePath);
     if (!inFile) {
         cerr << "Error: Could not open input file." << endl;
-        return 1;
+        return false;
     }
 
-    // Read data from input file
-    vector<string> data;
     string line;
     getline(inFile, line);
     istringstream iss(line);
     string name;
-    int N, number_of_pi, number_of_po;
-    iss >> name;
-    iss >> N >> number_of_pi >> number_of_po;
+    iss >> name >> graph.N >> graph.number_of_pi >> graph.number_of_po;
 
-    vector<vector<int>> e(N + 1);
-    vector<int> PI(number_of_pi), PO(number_of_po);
+    graph.E.resize(graph.N + 1);
+    graph.PI.resize(graph.number_of_pi);
+    graph.PO.resize(graph.number_of_po);
 
-    for(int i = 0; i < number_of_pi; i++) {
+    for (int i = 0; i < graph.number_of_pi; i++) {
         getline(inFile, line);
         istringstream iss(line);
-        iss >> PI[i];
+        iss >> graph.PI[i];
     }
 
-    for(int i = 0; i < number_of_po; i++) {
+    for (int i = 0; i < graph.number_of_po; i++) {
         getline(inFile, line);
         istringstream iss(line);
-        iss.str(line);
-        iss >> PO[i];
+        iss >> graph.PO[i];
     }
 
-    while(getline(inFile, line)) {
+    while (getline(inFile, line)) {
         istringstream iss(line);
         int node;
         iss >> node;
         int id;
-        while(iss >> id) {
-            e[node].push_back(id);
+        while (iss >> id) {
+            graph.E[node].push_back(id);
         }
     }
     inFile.close();
+    return true;
+}
 
+// Function to process nodes based on the graph structure and create "cones"
+void process_nodes(const InputData& graph, int K, vector<string>& output) {
     queue<int> q;
-    vector<bool> ot(N + 1);
-    for(int i = 0; i < PO.size(); i++) {
-        q.push(PO[i]);
+    vector<bool> ot(graph.N + 1, false);
+    
+    // Initialize queue with primary output nodes
+    for (int node : graph.PO) {
+        q.push(node);
     }
- 
 
-    while(!q.empty()) {
+    while (!q.empty()) {
         int node = q.front();
         q.pop();
-        if(ot[node]) continue;
-        ot[node] = 1;
-        // first find the cut of size K
+        if (ot[node]) continue;
+        ot[node] = true;
 
-        //bdy contains non-leaf nodes
-        set<int> bdy;
-        //good contains leaf nodes
-        set<int> good;
+        set<int> bdy, good;
+        vector<bool> dul(graph.N + 1, false);
 
-        for(int nei:e[node]) {
-            if(ot[nei] || e[nei].size() == 0)
+        // Classify neighbors into "good" (leaf nodes) and "bdy" (non-leaf nodes)
+        for (int nei : graph.E[node]) {
+            if (ot[nei] || graph.E[nei].empty())
                 good.insert(nei);
             else
                 bdy.insert(nei);
         }
 
-
-        // if the number of input node is not constant 2, then here need to be revised.
-        vector<bool> dul(N + 1);
-        while(bdy.size() < K - good.size() && bdy.size() > 0) {
+        // Adjust boundary set to ensure the cut size does not exceed K
+        while (bdy.size() < K - good.size() && !bdy.empty()) {
             auto it = bdy.begin();
             int m = *it;
-            dul[m] = 1;
-            for(int nei: e[m]) {
-                if(dul[nei]) continue;
-                if(ot[nei] || e[nei].size() == 0)
+            dul[m] = true;
+            for (int nei : graph.E[m]) {
+                if (dul[nei]) continue;
+                if (ot[nei] || graph.E[nei].empty())
                     good.insert(nei);
                 else
                     bdy.insert(nei);
@@ -110,39 +103,62 @@ int main(int argc, char* argv[]) {
             bdy.erase(m);
         }
 
-        string cone;
-        std::ostringstream oss;
-        oss<<node;
-
-        for(auto i:good) {
-            // cout<<i<<'\n';
-            oss<<" "<<i;
-        }
-        for(auto i:bdy) {
-            // cout<<i<<'\n';
+        // Assemble the cone for the current node
+        ostringstream oss;
+        oss << node;
+        for (int i : good) oss << " " << i;
+        for (int i : bdy) {
             q.push(i);
-            oss<<" "<<i;
+            oss << " " << i;
         }
-        cone = oss.str();
-        data.push_back(cone);
-        // cout<<"-------\n";
+        output.push_back(oss.str());
     }
-    
+}
 
-    // Open output file
+// Function to write output to the specified file
+bool write_output(const string& outputFilePath, const vector<string>& output) {
     ofstream outFile(outputFilePath);
     if (!outFile) {
         cerr << "Error: Could not open output file." << endl;
+        return false;
+    }
+
+    for (const auto& line : output) {
+        outFile << line << endl;
+    }
+    outFile.close();
+    return true;
+}
+
+int main(int argc, char* argv[]) {
+    // Check for correct number of command-line arguments
+    if (argc != 4) {
+        cerr << "Usage: ./mapper <input file path> <output file path> <K>" << endl;
         return 1;
     }
 
+    // Parse command-line arguments
+    string inputFilePath = argv[1];
+    string outputFilePath = argv[2];
+    int K = stoi(argv[3]);
 
-    for (const auto& line : data) {
-        outFile << line << endl;
+    // Prepare input graph structure and output storage
+    InputData graph;
+    vector<string> output;
+
+    // Read input graph
+    if (!read_input(inputFilePath, graph)) {
+        return 1;
     }
 
-    outFile.close();
-    cout << "Processing complete. Output written to " << outputFilePath << endl;
+    // Process nodes and generate output graph
+    process_nodes(graph, K, output);
 
+    // Write output to file
+    if (!write_output(outputFilePath, output)) {
+        return 1;
+    }
+
+    cout << "Processing complete. Output written to " << outputFilePath << endl;
     return 0;
 }
