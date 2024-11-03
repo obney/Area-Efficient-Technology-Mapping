@@ -4,6 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <queue>
+#include <stack>
 #include <set>
 
 using namespace std;
@@ -63,17 +64,17 @@ bool read_input(const string& inputFilePath, InputData& graph) {
 
 // Function to process nodes based on the graph structure and create "cones"
 void process_nodes(const InputData& graph, int K, vector<string>& output) {
-    queue<int> q;
+    stack<int> stk;
     vector<bool> ot(graph.N + 1, false);
     
     // Initialize queue with primary output nodes
     for (int node : graph.PO) {
-        q.push(node);
+        stk.push(node);
     }
 
-    while (!q.empty()) {
-        int node = q.front();
-        q.pop();
+    while (!stk.empty()) {
+        int node = stk.top();
+        stk.pop();
         if (ot[node]) continue;
         ot[node] = true;
 
@@ -108,7 +109,7 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
         oss << node;
         for (int i : good) oss << " " << i;
         for (int i : bdy) {
-            q.push(i);
+            stk.push(i);
             oss << " " << i;
         }
         output.push_back(oss.str());
