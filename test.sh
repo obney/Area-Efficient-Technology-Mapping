@@ -1,12 +1,17 @@
-./JUSTIFY ./input/spla.blif ./output1101/spla-3_ori.txt 3
-./JUSTIFY ./input/spla.blif ./output1101/spla-4_ori.txt 4
-./JUSTIFY ./input/spla.blif ./output1101/spla-5_ori.txt 5
-./JUSTIFY ./input/spla.blif ./output1101/spla-6_ori.txt 6
-./JUSTIFY ./input/spla.blif ./output1101/spla-7_ori.txt 7
-./JUSTIFY ./input/spla.blif ./output1101/spla-8_ori.txt 8
-# ./JUSTIFY ./input/spla.blif ./output1101/spla-3_flo.txt 3
-# ./JUSTIFY ./input/spla.blif ./output1101/spla-4_flo.txt 4
-# ./JUSTIFY ./input/spla.blif ./output1101/spla-5_flo.txt 5
-# ./JUSTIFY ./input/spla.blif ./output1101/spla-6_flo.txt 6
-# ./JUSTIFY ./input/spla.blif ./output1101/spla-7_flo.txt 7
-# ./JUSTIFY ./input/spla.blif ./output1101/spla-8_flo.txt 8
+#!/bin/sh
+
+input_files="spla.blif alu4.blif apex4.blif cordic.blif"
+output_dir="./output1101"
+program="./JUSTIFY"
+
+for input_file in $input_files; do
+    base_name=$(basename "$input_file" .blif)
+    for i in 3 4 5 6 7 8; do
+        output_file="${output_dir}/${base_name}-${i}_ori.txt"
+        
+        # Print which file is currently being processed
+        echo "Processing $input_file with JUSTIFY for value $i..."
+        
+        $program "./input/$input_file" "$output_file" $i
+    done
+done
