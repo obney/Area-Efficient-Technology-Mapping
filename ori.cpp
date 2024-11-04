@@ -75,33 +75,31 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
     while (!stk.empty()) {
         int node = stk.top();
         stk.pop();
-        if (ot[node]) continue;
+        if (ot[node] || graph.E[node].empty()) continue;
         ot[node] = true;
 
         set<int> bdy, good;
         vector<bool> dul(graph.N + 1, false);
-
-        // Classify neighbors into "good" (leaf nodes) and "bdy" (non-leaf nodes)
-        for (int nei : graph.E[node]) {
-            if (ot[nei] || graph.E[nei].empty())
-                good.insert(nei);
-            else
-                bdy.insert(nei);
-        }
+        bdy.insert(node);
 
         // Adjust boundary set to ensure the cut size does not exceed K
-        while (bdy.size() < K - good.size() && !bdy.empty()) {
+        while (!bdy.empty()) {
             auto it = bdy.begin();
             int m = *it;
             dul[m] = true;
+            set<int> t1(bdy), t2(good);
             for (int nei : graph.E[m]) {
                 if (dul[nei]) continue;
                 if (ot[nei] || graph.E[nei].empty())
-                    good.insert(nei);
+                    t2.insert(nei);
                 else
-                    bdy.insert(nei);
+                    t1.insert(nei);
             }
-            bdy.erase(m);
+            t1.erase(m);
+            
+            if(t1.size() + t2.size() > K) break;
+            bdy = t1;
+            good = t2;
         }
 
         // Assemble the cone for the current node
