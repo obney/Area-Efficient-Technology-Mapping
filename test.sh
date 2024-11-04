@@ -1,7 +1,7 @@
 #!/bin/sh
 
 input_files="spla.blif alu4.blif apex4.blif cordic.blif"
-output_dir="./output1101"
+output_dir="./output"
 program="./JUSTIFY"
 
 for input_file in $input_files; do
@@ -10,7 +10,7 @@ for input_file in $input_files; do
         output_file="${output_dir}/${base_name}-${i}_ori.txt"
         
         # Print which file is currently being processed
-        echo "Processing $input_file with JUSTIFY for value $i..."
+        echo "$input_file $i..."
         
         $program "./input/$input_file" "$output_file" $i
     done
