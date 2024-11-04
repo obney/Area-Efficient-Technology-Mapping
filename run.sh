@@ -1,15 +1,12 @@
-# ./ori ./input/spla.blif ./output1101/spla-3_ori.txt 3
-# ./ori ./input/spla.blif ./output1101/spla-4_ori.txt 4
-# ./ori ./input/spla.blif ./output1101/spla-5_ori.txt 5
-# ./ori ./input/spla.blif ./output1101/spla-6_ori.txt 6
-# ./ori ./input/spla.blif ./output1101/spla-7_ori.txt 7
-# ./ori ./input/spla.blif ./output1101/spla-8_ori.txt 8
-# ./mapper ./input/spla.blif ./output1101/spla-3_flo.txt 3
-# ./mapper ./input/spla.blif ./output1101/spla-4_flo.txt 4
-# ./mapper ./input/spla.blif ./output1101/spla-5_flo.txt 5
-# ./mapper ./input/spla.blif ./output1101/spla-6_flo.txt 6
-# ./mapper ./input/spla.blif ./output1101/spla-7_flo.txt 7
-# ./mapper ./input/spla.blif ./output1101/spla-8_flo.txt 8
-g++ -O3 -g ori.cpp  -o ori
-./ori ./input/naive.blif ./output/naive_ori.txt 3
-./JUSTIFY ./input/naive.blif ./output/naive_ori.txt 3
+#!/bin/sh
+
+output_dir="./output"
+program="./ori"
+
+for input_file in "spla.blif" "alu4.blif" "apex4.blif" "cordic.blif"; do
+    for i in 3 4 5 6 7 8; do
+        output_file="${output_dir}/$(basename "$input_file" .blif)-${i}_ori.txt"
+        $program "./input/$input_file" "$output_file" $i
+    done
+done
+
