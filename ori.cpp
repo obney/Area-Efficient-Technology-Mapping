@@ -6,6 +6,9 @@
 #include <queue>
 #include <stack>
 #include <set>
+#include <iterator>
+#include <chrono>
+#include <time.h>
 
 using namespace std;
 
@@ -85,6 +88,7 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
         // Adjust boundary set to ensure the cut size does not exceed K
         while (!bdy.empty()) {
             auto it = bdy.begin();
+            advance(it, rand() % bdy.size());
             int m = *it;
             dul[m] = true;
             set<int> t1(bdy), t2(good);
@@ -150,8 +154,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Process nodes and generate output graph
-    process_nodes(graph, K, output);
+    // Set the target duration to 10 minutes
+    auto start_time = chrono::steady_clock::now();
+    chrono::minutes target_duration(9);
+
+    while (chrono::steady_clock::now() - start_time < target_duration) {
+        vector<string> tmp;
+        // Process nodes and generate output graph
+        process_nodes(graph, K, tmp);
+        if (output.empty() || output.size() > tmp.size()) {
+            output = tmp;
+        }
+    }
 
     // Write output to file
     if (!write_output(outputFilePath, output)) {
