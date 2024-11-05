@@ -69,12 +69,29 @@ bool read_input(const string& inputFilePath, InputData& graph) {
     return true;
 }
 
-// Function to process nodes based on the graph structure and create "cones"
-void process_nodes(const InputData& graph, int K, vector<string>& output) {
-    vector<int> label(graph.N + 1), deg(graph.N + 1), subgraph_size(graph.N + 1);
-    vector<vector<int>> k_lut(graph.N + 1, vector<int>());
+int subgraph_size(const InputData& graph, int root) {
+    int cnt = 0;
+    vector<bool> vis(graph.N + 1);
+    vis[root] = 1;
+    queue<int> q;
+    q.push(root);
+    while(!q.empty()) {
+        int cur = q.front();
+        q.pop();
+        cnt++;
+        for(auto& child:graph.E[cur]) {
+            if(!vis[child]) {
+                vis[child] = 1;
+                q.push(child);
+            }
+        }
+    }
+    return cnt;
+}
 
-
+// Function to label nodes
+void label(const InputData& graph, int K, vector<vector<int>>& k_lut) {
+    vector<int> label(graph.N + 1), deg(graph.N + 1);
 
     //PHASE1 LABELING
     //calulate labels in topological order
@@ -82,12 +99,13 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
 
     //base case
     for(auto& node: graph.PI) {
-        subgraph_size[node] = 1;
         for(auto& to: graph.reverse_E[node]) {
             deg[to]++;
             if(deg[to] == graph.E[to].size()) {
                 label[to] = 1;
-                subgraph_size[to] = graph.E[to].size() + 1;
+                for(auto& child: graph.E[to]) {
+                    k_lut[to].push_back(child);
+                }
                 for(auto& to2: graph.reverse_E[to]) {
                     deg[to2]++;
                     if(deg[to2] == graph.E[to2].size()) q.push(to2);
@@ -95,14 +113,11 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
             }
         }
     }
-    int cnt = 0;
 
     while(!q.empty()) {
         int node = q.front();
         // cout<<node<<" "<<q.size()<<'\n';
         q.pop();
-        cnt++;
-        if(cnt == 13) break;
 
         for(auto& to: graph.reverse_E[node]) {
             deg[to]++;
@@ -118,15 +133,12 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
         vector<int> discrete(graph.N + 1), map(2*graph.N + 10);
         vis[node] = discrete[node] = 1;
 
-        subgraph_size[node] = 1;
-        for(auto& child: graph.E[node]) {
-            p = max(p, label[child]);
-            subgraph_size[node] += subgraph_size[child];
-        }
-
+        
+        for(auto& child: graph.E[node]) p = max(p, label[child]);
         
 
-        Graph_FlowNetWorks net(2*subgraph_size[node] + 10);
+        //graph size need to update
+        Graph_FlowNetWorks net(2*subgraph_size(graph, node) + 10);
 
         bfs.push(node);
 
@@ -183,8 +195,29 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
             }
         }
         // cout<<node<<" "<<label[node]<<'\n';
+    }
+}
 
+void mapping(const InputData& graph, int K, const vector<vector<int>>& k_lut, vector<string>& output) {
+    stack<int> stk;
+    vector<bool> vis(graph.N + 1);
+    for(auto& node: graph.PO) stk.push(node);
 
+    while(!stk.empty()) {
+        int cur = stk.top();
+        stk.pop();
+
+        ostringstream oss;
+        oss << cur;
+
+        for(auto& in: k_lut[cur]) {
+            if(!vis[in] && graph.E[in].size() > 0) {
+                vis[in] = 1;
+                stk.push(in);
+            }
+            oss << " " << in;
+        }
+        output.push_back(oss.str());
     }
 }
 
@@ -204,6 +237,10 @@ bool write_output(const string& outputFilePath, const vector<string>& output) {
 }
 
 int main(int argc, char* argv[]) {
+    // Start timing
+    auto start = chrono::high_resolution_clock::now();
+
+
     // Check for correct number of command-line arguments
     if (argc != 4) {
         cerr << "Usage: ./mapper <input file path> <output file path> <K>" << endl;
@@ -225,14 +262,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    
-    process_nodes(graph, K, output);
-     
-    // Write output to file
-    // if (!write_output(outputFilePath, output)) {
-    //     return 1;
-    // }
+    //phase 1: label the node
+    vector<vector<int>> k_lut(graph.N + 1, vector<int>());
+    label(graph, K, k_lut);
+
+    //phase 2: mapping
+    mapping(graph, K, k_lut, output);
+
+    //Write output to file
+    if (!write_output(outputFilePath, output)) {
+        return 1;
+    }
 
     cout << "Processing complete. Output written to " << outputFilePath << endl;
+
+    // End timing
+    auto end = chrono::high_resolution_clock::now();
+
+    // Calculate and display the elapsed time in milliseconds
+    chrono::duration<double, std::milli> elapsed = end - start;
+    cout << "Program runtime: " << elapsed.count() << " ms" << std::endl;
     return 0;
 }

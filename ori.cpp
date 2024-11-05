@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
 
     // Set the target duration to 10 minutes
     auto start_time = chrono::steady_clock::now();
-    chrono::minutes target_duration(9);
+    chrono::seconds target_duration(1);
 
     while (chrono::steady_clock::now() - start_time < target_duration) {
         vector<string> tmp;
