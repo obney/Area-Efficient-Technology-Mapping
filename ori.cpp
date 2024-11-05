@@ -4,7 +4,11 @@
 #include <sstream>
 #include <vector>
 #include <queue>
+#include <stack>
 #include <set>
+#include <iterator>
+#include <chrono>
+#include <time.h>
 
 using namespace std;
 
@@ -63,44 +67,43 @@ bool read_input(const string& inputFilePath, InputData& graph) {
 
 // Function to process nodes based on the graph structure and create "cones"
 void process_nodes(const InputData& graph, int K, vector<string>& output) {
-    queue<int> q;
+    stack<int> stk;
     vector<bool> ot(graph.N + 1, false);
     
     // Initialize queue with primary output nodes
     for (int node : graph.PO) {
-        q.push(node);
+        stk.push(node);
     }
 
-    while (!q.empty()) {
-        int node = q.front();
-        q.pop();
-        if (ot[node]) continue;
+    while (!stk.empty()) {
+        int node = stk.top();
+        stk.pop();
+        if (ot[node] || graph.E[node].empty()) continue;
         ot[node] = true;
 
         set<int> bdy, good;
         vector<bool> dul(graph.N + 1, false);
-
-        // Classify neighbors into "good" (leaf nodes) and "bdy" (non-leaf nodes)
-        for (int nei : graph.E[node]) {
-            if (ot[nei] || graph.E[nei].empty())
-                good.insert(nei);
-            else
-                bdy.insert(nei);
-        }
+        bdy.insert(node);
 
         // Adjust boundary set to ensure the cut size does not exceed K
-        while (bdy.size() < K - good.size() && !bdy.empty()) {
+        while (!bdy.empty()) {
             auto it = bdy.begin();
+            advance(it, rand() % bdy.size());
             int m = *it;
             dul[m] = true;
+            set<int> t1(bdy), t2(good);
             for (int nei : graph.E[m]) {
                 if (dul[nei]) continue;
                 if (ot[nei] || graph.E[nei].empty())
-                    good.insert(nei);
+                    t2.insert(nei);
                 else
-                    bdy.insert(nei);
+                    t1.insert(nei);
             }
-            bdy.erase(m);
+            t1.erase(m);
+            
+            if(t1.size() + t2.size() > K) break;
+            bdy = t1;
+            good = t2;
         }
 
         // Assemble the cone for the current node
@@ -108,7 +111,7 @@ void process_nodes(const InputData& graph, int K, vector<string>& output) {
         oss << node;
         for (int i : good) oss << " " << i;
         for (int i : bdy) {
-            q.push(i);
+            stk.push(i);
             oss << " " << i;
         }
         output.push_back(oss.str());
@@ -151,8 +154,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Process nodes and generate output graph
-    process_nodes(graph, K, output);
+    // Set the target duration to 10 minutes
+    auto start_time = chrono::steady_clock::now();
+    chrono::minutes target_duration(9);
+
+    while (chrono::steady_clock::now() - start_time < target_duration) {
+        vector<string> tmp;
+        // Process nodes and generate output graph
+        process_nodes(graph, K, tmp);
+        if (output.empty() || output.size() > tmp.size()) {
+            output = tmp;
+        }
+    }
 
     // Write output to file
     if (!write_output(outputFilePath, output)) {
