@@ -7,9 +7,9 @@
 #include <stack>
 #include <set>
 #include <iterator>
+#include <algorithm>
 #include <chrono>
 #include <time.h>
-#include "flow.h"
 
 using namespace std;
 
@@ -69,43 +69,24 @@ bool read_input(const string& inputFilePath, InputData& graph) {
     return true;
 }
 
-int subgraph_size(const InputData& graph, int root) {
-    int cnt = 0;
-    vector<bool> vis(graph.N + 1);
-    vis[root] = 1;
-    queue<int> q;
-    q.push(root);
-    while(!q.empty()) {
-        int cur = q.front();
-        q.pop();
-        cnt++;
-        for(auto& child:graph.E[cur]) {
-            if(!vis[child]) {
-                vis[child] = 1;
-                q.push(child);
-            }
-        }
-    }
-    return cnt;
-}
-
 // Function to label nodes
-void label(const InputData& graph, int K, vector<vector<int>>& k_lut) {
-    vector<int> label(graph.N + 1), deg(graph.N + 1);
-
-    //PHASE1 LABELING
-    //calulate labels in topological order
+void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<int>>* feasible_cuts) {
+    vector<int> deg(graph.N + 1), label(graph.N + 1, 1e9);
+    
+    //calulate optimal cut of node in topological order
     queue<int> q;
 
     //base case
     for(auto& node: graph.PI) {
+        label[node] = 0;
         for(auto& to: graph.reverse_E[node]) {
             deg[to]++;
             if(deg[to] == graph.E[to].size()) {
+                set<int> cut;
+                for(auto& child: graph.E[to]) cut.insert(child);
                 label[to] = 1;
-                for(auto& child: graph.E[to]) {
-                    k_lut[to].push_back(child);
-                }
+                feasible_cuts[to].insert(cut);
+                opt_k_lut[to] = cut;
                 for(auto& to2: graph.reverse_E[to]) {
                     deg[to2]++;
                     if(deg[to2] == graph.E[to2].size()) q.push(to2);
@@ -127,78 +108,45 @@ void label(const InputData& graph, int K, vector<vector<int>>& k_lut) {
             }
         }
 
-        int p = 0, cnt = 2;
-        queue<int> bfs;
-        vector<bool> vis(graph.N + 1);
-        vector<int> discrete(graph.N + 1), map(2*graph.N + 10);
-        vis[node] = discrete[node] = 1;
-
+        feasible_cuts[node].insert({graph.E[node][0], graph.E[node][1]});
         
-        for(auto& child: graph.E[node]) p = max(p, label[child]);
-        
-
-        //graph size need to update
-        Graph_FlowNetWorks net(2*subgraph_size(graph, node) + 10);
-
-        bfs.push(node);
-
-        while(!bfs.empty()) {
-            int cur = bfs.front();
-            bfs.pop();
-
-            for(auto& child: graph.E[cur]) {
-                if(!vis[child]) {
-                    vis[child] = 1;
-                    bfs.push(child);
-                    if(label[child] == p) {
-                        discrete[child] = 1;
-                        continue;
-                    }
-                    discrete[child] = cnt;
-                    map[cnt] = child;
-                    cnt += 2;
-                }
-                if(label[child] == p) continue;
-                net.AddEdge(discrete[child], discrete[child] + 1, 1);
-                net.AddEdge(discrete[child] + 1, discrete[cur], 1e9);
-            }
-
-            if(graph.E[cur].size() == 0) {
-                net.AddEdge(0, discrete[cur], 1e9);
-            }
+        for(auto& fc: feasible_cuts[graph.E[node][0]]) {
+            set<int> cut({graph.E[node][1]});
+            for(auto& v: fc) cut.insert(v);
+            if(cut.size() <= K) feasible_cuts[node].insert(cut);
         }
 
-        vector<int> cut;
-        
-        net.FordFulkerson(0, 1, cut);
-        // for(int i = 0; i < map.size(); i++) {
-        //     if(map[i] != 0) {
-        //         cout<<map[i]<<" "<<i<<'\n';
-        //     }
-        // }
-        // cout<<"cut";
-        // for(auto& c: cut) {
-        //     cout<<map[c]<<" ";
-        //     // k_lut[node].push_back(map[c]);
-        // }
-        // cout<<"\n\n";
-
-        if(cut.size() > K) {
-            label[node] = p + 1;
-            for(auto& child: graph.E[node])
-                k_lut[node].push_back(child);
+        for(auto& fc: feasible_cuts[graph.E[node][1]]) {
+            set<int> cut({graph.E[node][0]});
+            for(auto& v: fc) cut.insert(v);
+            if(cut.size() <= K) feasible_cuts[node].insert(cut);
         }
-        else {
-            label[node] = p;
-            for(auto& c: cut) {
-                k_lut[node].push_back(map[c]);
+
+        for(auto& fc0: feasible_cuts[graph.E[node][0]]) {
+            for(auto& fc1: feasible_cuts[graph.E[node][1]]) {
+                set<int> cut(fc0);
+                for(auto& v: fc1) cut.insert(v);
+                if(cut.size() <= K) feasible_cuts[node].insert(cut);
             }
         }
-        // cout<<node<<" "<<label[node]<<'\n';
+        
+        for(auto& cut: feasible_cuts[node]) {
+            int cost = 1;
+            for(auto& v: cut) {
+                // cout<<v<<" ";
+                cost += label[v];
+            }
+            // cout<<'\n';
+            if(cost < label[node]) {
+                label[node] = cost;
+                opt_k_lut[node] = cut;
+            }
+        }
+        // cout<<"Label:"<<node<<" "<<label[node]<<"\n\n";
     }
 }
 
-void mapping(const InputData& graph, int K, const vector<vector<int>>& k_lut, vector<string>& output) {
+void mapping(const InputData& graph, int K, const vector<set<int>>& opt_k_lut, vector<string>& output) {
     stack<int> stk;
     vector<bool> vis(graph.N + 1);
     for(auto& node: graph.PO) stk.push(node);
@@ -207,45 +155,18 @@ void mapping(const InputData& graph, int K, const vector<vector<int>>& k_lut, ve
         int cur = stk.top();
         stk.pop();
 
-        set<int> non_leaf, leaf;
-        vector<bool> dul(graph.N + 1);
-
-        for(auto& in: k_lut[cur]) {
-            if(!vis[in] && graph.E[in].size() > 0) non_leaf.insert(in);
-            else leaf.insert(in);
-        }
-
-        // expand the cut size to at most k
-        while (!non_leaf.empty()) {
-            auto it = non_leaf.begin();
-            advance(it, rand() % non_leaf.size());
-            int m = *it;
-            dul[m] = true;
-            set<int> t1(non_leaf), t2(leaf);
-            for (auto& child : graph.E[m]) {
-                if (dul[child]) continue;
-                if (vis[child] || graph.E[child].empty())
-                    t2.insert(child);
-                else
-                    t1.insert(child);
-            }
-            t1.erase(m);
-            
-            if(t1.size() + t2.size() > K) break;
-            non_leaf = t1;
-            leaf = t2;
-        }
-
         ostringstream oss;
         oss << cur;
-
-        for(auto& c: leaf) oss << " " << c;
-
-        for(auto& c: non_leaf) {
-            vis[c] = 1;
-            stk.push(c);
-            oss << " " << c;
+        // cout<<cur<<": ";
+        for(auto& in: opt_k_lut[cur]) {
+            if(!vis[in] && graph.E[in].size() > 0) {
+                vis[in] = 1;
+                stk.push(in);
+            }
+            oss << " " << in;
+            // cout<<" "<<in;
         }
+        // cout<<'\n';
 
         output.push_back(oss.str());
     }
@@ -293,18 +214,16 @@ int main(int argc, char* argv[]) {
     }
 
     //phase 1: label the node
-    vector<vector<int>> k_lut(graph.N + 1, vector<int>());
-    label(graph, K, k_lut);
+    vector<set<int>> opt_k_lut(graph.N + 1, set<int>());
+    set<set<int>> feasible_cuts[graph.N + 1];
+    label(graph, K, opt_k_lut, feasible_cuts);
 
     //phase 2: mapping
-    chrono::minutes target_duration(9);
-    while(chrono::steady_clock::now() - start < target_duration) {
-        vector<string> tmp;
-        mapping(graph, K, k_lut, tmp);
-        if(output.size() ==0 || tmp.size() < output.size()) output = tmp;
-    }
-
+    mapping(graph, K, opt_k_lut, output);
     
+    // for(auto& out: graph.PO) {
+    //     cout<<out<<": "<<feasible_cuts[out].size()<<'\n';
+    // }
 
     //Write output to file
     if (!write_output(outputFilePath, output)) {
