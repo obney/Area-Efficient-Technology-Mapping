@@ -71,7 +71,8 @@ bool read_input(const string& inputFilePath, InputData& graph) {
 
 // Function to label nodes
 void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<int>>* feasible_cuts) {
-    vector<int> deg(graph.N + 1), label(graph.N + 1, 1e9);
+    vector<int> deg(graph.N + 1);
+    vector<double> label(graph.N + 1, 1e9);
     
     //calulate optimal cut of node in topological order
     queue<int> q;
@@ -131,10 +132,10 @@ void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<i
         }
         
         for(auto& cut: feasible_cuts[node]) {
-            int cost = 1;
+            double cost = 1.0;
             for(auto& v: cut) {
                 // cout<<v<<" ";
-                cost += label[v];
+                cost += label[v]/(double)max(1, (int)graph.reverse_E[v].size());
             }
             // cout<<'\n';
             if(cost < label[node]) {
