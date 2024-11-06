@@ -69,8 +69,31 @@ bool read_input(const string& inputFilePath, InputData& graph) {
     return true;
 }
 
+void check_redundance(const InputData& graph, set<int>& cut) {
+    bool flag = true;
+    while(flag) {
+        flag = false;
+        set<int> to_be_erase;
+        set<int> to_be_insert;
+
+        for(auto& c:cut) {
+            if(graph.E[c].size() == 0) continue;
+            int child1 = graph.E[c][0], child2 = graph.E[c][1];
+            bool r1 = cut.count(child1), r2 = cut.count(child2);
+            if(r1 || r2) {
+                flag = true;
+                to_be_erase.insert(c);
+                if(!r1) to_be_insert.insert(child1);
+                if(!r2) to_be_insert.insert(child2);
+            }
+        }
+        for(auto& v:to_be_insert) cut.insert(v);
+        for(auto& v:to_be_erase) cut.erase(v);
+    }
+}
+
 // Function to label nodes
-void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<int>>* feasible_cuts) {
+void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<set<set<int>>>& feasible_cuts) {
     vector<int> deg(graph.N + 1);
     vector<double> label(graph.N + 1, 1e9);
     
@@ -114,12 +137,14 @@ void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<i
         for(auto& fc: feasible_cuts[graph.E[node][0]]) {
             set<int> cut({graph.E[node][1]});
             for(auto& v: fc) cut.insert(v);
+            check_redundance(graph, cut);
             if(cut.size() <= K) feasible_cuts[node].insert(cut);
         }
 
         for(auto& fc: feasible_cuts[graph.E[node][1]]) {
             set<int> cut({graph.E[node][0]});
             for(auto& v: fc) cut.insert(v);
+            check_redundance(graph, cut);
             if(cut.size() <= K) feasible_cuts[node].insert(cut);
         }
 
@@ -127,6 +152,7 @@ void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<i
             for(auto& fc1: feasible_cuts[graph.E[node][1]]) {
                 set<int> cut(fc0);
                 for(auto& v: fc1) cut.insert(v);
+                check_redundance(graph, cut);
                 if(cut.size() <= K) feasible_cuts[node].insert(cut);
             }
         }
@@ -147,7 +173,7 @@ void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, set<set<i
     }
 }
 
-void mapping(const InputData& graph, int K, const vector<set<int>>& opt_k_lut, vector<string>& output) {
+void mapping(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<string>& output) {
     stack<int> stk;
     vector<bool> vis(graph.N + 1);
     for(auto& node: graph.PO) stk.push(node);
@@ -159,6 +185,7 @@ void mapping(const InputData& graph, int K, const vector<set<int>>& opt_k_lut, v
         ostringstream oss;
         oss << cur;
         // cout<<cur<<": ";
+        // check_redundance(graph, opt_k_lut[cur]);
         for(auto& in: opt_k_lut[cur]) {
             if(!vis[in] && graph.E[in].size() > 0) {
                 vis[in] = 1;
@@ -216,7 +243,7 @@ int main(int argc, char* argv[]) {
 
     //phase 1: label the node
     vector<set<int>> opt_k_lut(graph.N + 1, set<int>());
-    set<set<int>> feasible_cuts[graph.N + 1];
+    vector<set<set<int>>> feasible_cuts(graph.N + 1);
     label(graph, K, opt_k_lut, feasible_cuts);
 
     //phase 2: mapping
