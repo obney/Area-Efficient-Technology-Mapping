@@ -207,16 +207,46 @@ void mapping(const InputData& graph, int K, const vector<vector<int>>& k_lut, ve
         int cur = stk.top();
         stk.pop();
 
+        set<int> non_leaf, leaf;
+        vector<bool> dul(graph.N + 1);
+
+        for(auto& in: k_lut[cur]) {
+            if(!vis[in] && graph.E[in].size() > 0) non_leaf.insert(in);
+            else leaf.insert(in);
+        }
+
+        // expand the cut size to at most k
+        while (!non_leaf.empty()) {
+            auto it = non_leaf.begin();
+            advance(it, rand() % non_leaf.size());
+            int m = *it;
+            dul[m] = true;
+            set<int> t1(non_leaf), t2(leaf);
+            for (auto& child : graph.E[m]) {
+                if (dul[child]) continue;
+                if (vis[child] || graph.E[child].empty())
+                    t2.insert(child);
+                else
+                    t1.insert(child);
+            }
+            t1.erase(m);
+            
+            if(t1.size() + t2.size() > K) break;
+            non_leaf = t1;
+            leaf = t2;
+        }
+
         ostringstream oss;
         oss << cur;
 
-        for(auto& in: k_lut[cur]) {
-            if(!vis[in] && graph.E[in].size() > 0) {
-                vis[in] = 1;
-                stk.push(in);
-            }
-            oss << " " << in;
+        for(auto& c: leaf) oss << " " << c;
+
+        for(auto& c: non_leaf) {
+            vis[c] = 1;
+            stk.push(c);
+            oss << " " << c;
         }
+
         output.push_back(oss.str());
     }
 }
@@ -267,7 +297,12 @@ int main(int argc, char* argv[]) {
     label(graph, K, k_lut);
 
     //phase 2: mapping
-    mapping(graph, K, k_lut, output);
+    int cnt = 1;
+    while(cnt--) {
+        vector<string> tmp;
+        mapping(graph, K, k_lut, tmp);
+        if(output.size() ==0 || tmp.size() < output.size()) output = tmp;
+    }
 
     //Write output to file
     if (!write_output(outputFilePath, output)) {
