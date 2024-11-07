@@ -24,6 +24,11 @@ struct InputData {
     vector<int> PO;                // Primary outputs
 };
 
+struct FeasibleCut {
+    double cost;
+    set<int> node_cut;
+};
+
 // Function to read input from file into InputData struct
 bool read_input(const string& inputFilePath, InputData& graph) {
     ifstream inFile(inputFilePath);
@@ -93,7 +98,7 @@ void check_redundance(const InputData& graph, set<int>& cut) {
 }
 
 // Function to label nodes
-void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<set<set<int>>>& feasible_cuts) {
+void label(const InputData& graph, int K, vector<set<int>>& k_lut, vector<set<set<int>>>& feasible_cuts) {
     vector<int> deg(graph.N + 1);
     vector<double> label(graph.N + 1, 1e9);
     
@@ -110,7 +115,7 @@ void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<se
                 for(auto& child: graph.E[to]) cut.insert(child);
                 label[to] = 1;
                 feasible_cuts[to].insert(cut);
-                opt_k_lut[to] = cut;
+                k_lut[to] = cut;
                 for(auto& to2: graph.reverse_E[to]) {
                     deg[to2]++;
                     if(deg[to2] == graph.E[to2].size()) q.push(to2);
@@ -156,24 +161,44 @@ void label(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<se
                 if(cut.size() <= K) feasible_cuts[node].insert(cut);
             }
         }
+
+        vector<FeasibleCut> cut_set;
         
         for(auto& cut: feasible_cuts[node]) {
             double cost = 1.0;
+            FeasibleCut cc;
             for(auto& v: cut) {
                 // cout<<v<<" ";
                 cost += label[v]/(double)max(1, (int)graph.reverse_E[v].size());
             }
+            cc.node_cut = cut;
+            cc.cost = cost;
+            cut_set.push_back(cc);
             // cout<<'\n';
-            if(cost < label[node]) {
-                label[node] = cost;
-                opt_k_lut[node] = cut;
-            }
         }
+
+        sort(cut_set.begin(), cut_set.end(), [](FeasibleCut& a, FeasibleCut& b){
+            if(a.cost == b.cost) {
+                if(a.node_cut.size() == b.node_cut.size()) return a.node_cut < b.node_cut;
+                return a.node_cut.size() < b.node_cut.size();
+            }
+            return a.cost < b.cost;
+        });
+
+        label[node] = cut_set[0].cost;
+        k_lut[node] = cut_set[0].node_cut;
+
+        //cut_pruning: every node leaves at most 40 cut
+        int cut_size = cut_set.size();
+        while(cut_size > 40) {
+            feasible_cuts[node].erase(cut_set[--cut_size].node_cut);
+        }
+
         // cout<<"Label:"<<node<<" "<<label[node]<<"\n\n";
     }
 }
 
-void mapping(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<string>& output) {
+void mapping(const InputData& graph, int K, vector<set<int>>& k_lut, vector<string>& output) {
     stack<int> stk;
     vector<bool> vis(graph.N + 1);
     for(auto& node: graph.PO) stk.push(node);
@@ -185,8 +210,8 @@ void mapping(const InputData& graph, int K, vector<set<int>>& opt_k_lut, vector<
         ostringstream oss;
         oss << cur;
         // cout<<cur<<": ";
-        // check_redundance(graph, opt_k_lut[cur]);
-        for(auto& in: opt_k_lut[cur]) {
+        // check_redundance(graph, k_lut[cur]);
+        for(auto& in: k_lut[cur]) {
             if(!vis[in] && graph.E[in].size() > 0) {
                 vis[in] = 1;
                 stk.push(in);
@@ -242,12 +267,12 @@ int main(int argc, char* argv[]) {
     }
 
     //phase 1: label the node
-    vector<set<int>> opt_k_lut(graph.N + 1, set<int>());
+    vector<set<int>> k_lut(graph.N + 1, set<int>());
     vector<set<set<int>>> feasible_cuts(graph.N + 1);
-    label(graph, K, opt_k_lut, feasible_cuts);
+    label(graph, K, k_lut, feasible_cuts);
 
     //phase 2: mapping
-    mapping(graph, K, opt_k_lut, output);
+    mapping(graph, K, k_lut, output);
     
     // for(auto& out: graph.PO) {
     //     cout<<out<<": "<<feasible_cuts[out].size()<<'\n';
