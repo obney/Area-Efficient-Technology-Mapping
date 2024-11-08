@@ -9,6 +9,7 @@
 #include <iterator>
 #include <algorithm>
 #include <chrono>
+#include <math.h> 
 #include <time.h>
 
 using namespace std;
@@ -97,12 +98,12 @@ void check_redundance(const InputData& graph, set<int>& cut) {
     }
 }
 
-// Function to label nodes
-void label(const InputData& graph, int K, vector<set<int>>& k_lut, vector<set<set<int>>>& feasible_cuts, vector<int>& ref) {
+void generate_feasible_cut(const InputData& graph, int K, vector<set<set<int>>>& feasible_cuts, vector<int>& ref, const int max_cut_size) {
+    // int cnt = 0;
     vector<int> deg(graph.N + 1);
     vector<double> label(graph.N + 1, 1e9);
     
-    //calulate optimal cut of node in topological order
+    //calulate  cut of node in topological order
     queue<int> q;
 
     //base case
@@ -161,7 +162,7 @@ void label(const InputData& graph, int K, vector<set<int>>& k_lut, vector<set<se
             FeasibleCut cc;
             for(auto& v: cut) {
                 // cout<<v<<" ";
-                cost += label[v]/(double)max(1, ref[v]);
+                cost += label[v]/static_cast<double>(max(1, ref[v]));
             }
             cc.node_cut = cut;
             cc.cost = cost;
@@ -179,12 +180,59 @@ void label(const InputData& graph, int K, vector<set<int>>& k_lut, vector<set<se
         });
 
         label[node] = cut_set[0].cost;
-        k_lut[node] = cut_set[0].node_cut;
 
-        //cut_pruning: every node leaves at most 40 cut
+        //cut_pruning: every node leaves at most max_cut_size cut
         int cut_size = cut_set.size();
-        while(cut_size > 40) {
+        while(cut_size > max_cut_size) {
             feasible_cuts[node].erase(cut_set[--cut_size].node_cut);
+        }
+        // if(cut_size == max_cut_size) cnt++;
+    }
+    // cout<<"cnt: "<<cnt<<" percentage: "<<(double)cnt/graph.N<<'\n';
+}
+
+// Function to label nodes
+void label(const InputData& graph, int K, vector<set<int>>& k_lut, vector<set<set<int>>>& feasible_cuts, vector<int>& ref) {
+    vector<int> deg(graph.N + 1);
+    vector<double> label(graph.N + 1, 1e9);
+    
+    //calulate optimal cut of node in topological order
+    queue<int> q;
+
+    //base case
+    for(auto& node: graph.PI) {
+        label[node] = 0;
+        for(auto& to: graph.reverse_E[node]) {
+            deg[to]++;
+            if(deg[to] == graph.E[to].size()) q.push(to);
+        }
+    }
+
+    while(!q.empty()) {
+        int node = q.front();
+        // cout<<node<<" "<<q.size()<<'\n';
+        q.pop();
+
+        for(auto& to: graph.reverse_E[node]) {
+            deg[to]++;
+            if(deg[to] == graph.E[to].size()) {
+                // cout<<node<<"push"<<to<<'\n';
+                q.push(to);
+            }
+        }
+        
+        //calulate cut cost
+        for(auto& cut: feasible_cuts[node]) {
+            double cost = 1.0;
+            for(auto& v: cut) {
+                // cout<<v<<" ";
+                cost += label[v]/static_cast<double>(max(1, ref[v]));
+            }
+            if(label[node] > cost) {
+                label[node] = cost;
+                k_lut[node] = cut;
+            }
+            // cout<<'\n';
         }
 
         // cout<<"Label:"<<node<<" "<<label[node]<<"\n\n";
@@ -267,6 +315,11 @@ int main(int argc, char* argv[]) {
     vector<int> ref(graph.N + 1);
     for(int i = 1; i <= graph.N; i++) ref[i] = graph.reverse_E[i].size();
 
+
+    int max_cut_size = 80;
+    if(graph.N >= 25000) max_cut_size = max_cut_size * sqrt(25000.0/static_cast<double>(graph.N));
+    generate_feasible_cut(graph, K, feasible_cuts, ref, max_cut_size);
+
     int number_of_iteration = 10;
     while(number_of_iteration--) {
         vector<string> tmp;
@@ -274,7 +327,7 @@ int main(int argc, char* argv[]) {
         //reset ref
         for(int i = 1; i <= graph.N; i++) ref[i] = 0;
         mapping(graph, K, k_lut, ref, tmp);
-        cout<<number_of_iteration<<": "<<tmp.size()<<'\n';
+        // cout<<number_of_iteration<<": "<<tmp.size()<<'\n';
         if(output.size() == 0 || tmp.size() < output.size()) output = tmp;
     }
     
