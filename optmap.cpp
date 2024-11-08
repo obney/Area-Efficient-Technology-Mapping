@@ -84,13 +84,22 @@ void check_redundance(const InputData& graph, set<int>& cut) {
 
         for(auto& c:cut) {
             if(graph.E[c].size() == 0) continue;
-            int child1 = graph.E[c][0], child2 = graph.E[c][1];
-            bool r1 = cut.count(child1), r2 = cut.count(child2);
-            if(r1 || r2) {
-                flag = true;
-                to_be_erase.insert(c);
-                if(!r1) to_be_insert.insert(child1);
-                if(!r2) to_be_insert.insert(child2);
+            if(graph.E[c].size() == 1) {
+                int child1 = graph.E[c][0];
+                if(cut.count(child1)) {
+                    to_be_erase.insert(c);
+                    to_be_insert.insert(child1);
+                }
+            }
+            else if(graph.E[c].size() == 2) {
+                int child1 = graph.E[c][0], child2 = graph.E[c][1];
+                bool r1 = cut.count(child1), r2 = cut.count(child2);
+                if(r1 || r2) {
+                    flag = true;
+                    to_be_erase.insert(c);
+                    if(!r1) to_be_insert.insert(child1);
+                    if(!r2) to_be_insert.insert(child2);
+                }
             }
         }
         for(auto& v:to_be_insert) cut.insert(v);
@@ -126,6 +135,13 @@ void generate_feasible_cut(const InputData& graph, int K, vector<set<set<int>>>&
                 // cout<<node<<"push"<<to<<'\n';
                 q.push(to);
             }
+        }
+
+        if(graph.E[node].size() == 0) continue;
+        if(graph.E[node].size() == 1) {
+            label[node] = label[graph.E[node][0]];
+            feasible_cuts[node] = feasible_cuts[graph.E[node][0]];
+            continue;
         }
 
         //find all cut set
