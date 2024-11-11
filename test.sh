@@ -2,7 +2,7 @@
 
 input_files="spla.blif alu4.blif apex4.blif cordic.blif"
 output_dir="./output"
-program="./checker"
+program="./JUSTIFY"
 
 for input_file in $input_files; do
     base_name=$(basename "$input_file" .blif)
