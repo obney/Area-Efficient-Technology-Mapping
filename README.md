@@ -1,4 +1,4 @@
-### Project Description
+## Project Description
 
 This is a programming assignment from National Tsinghua University, course CS 516000: FPGA Architecture & CAD. The task is to implement technology mapping for a two-bounded circuit with the objective of minimizing the number of LUTs used. Detailed problem specifications can be found in CS516000_2024_Fall_Programming_Assignment.pdf. The implementation is provided in optmap.cpp.
 
