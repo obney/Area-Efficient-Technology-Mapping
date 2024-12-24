@@ -2,6 +2,17 @@
 
 This is a programming assignment from National Tsinghua University, course CS 516000: FPGA Architecture & CAD. The task is to implement technology mapping for a two-bounded circuit with the objective of minimizing the number of LUTs used. Detailed problem specifications can be found in CS516000_2024_Fall_Programming_Assignment.pdf. The implementation is provided in optmap.cpp.
 
+## Experiment result
+
+Comparison of number of K-LUTs for different circuits.
+
+| Circuit |origin| K = 3 | K = 4 | K = 5 | K = 6 | K = 7 | K = 8 |
+|---------|------|-------|-------|-------|-------|-------|-------|
+| **spla**  |7454| 4425  | 3152  | 2539  | 2084  | 1743  | 1398  |
+| **alu4**  |2746| 1644  | 1186  | 969   | 810   | 687   | 575   |
+| **apex4** |2204| 1405  | 1028  | 863   | 750   | 667   | 597   |
+| **cordic**|877 | 492   | 364   | 274   | 235   | 213   | 189   |
+
 ## Project Instructions
 
 ### 1. Build the Project
